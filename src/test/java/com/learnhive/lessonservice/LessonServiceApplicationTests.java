@@ -1,4 +1,4 @@
-package com.learnhive.lesson_service;
+package com.learnhive.lessonservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
