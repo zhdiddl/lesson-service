@@ -1,12 +1,15 @@
 package com.learnhive.lessonservice.exception;
 
 import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import lombok.Getter;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.ObjectError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
-@Slf4j
+import java.util.stream.Collectors;
+
 @ControllerAdvice
 public class ExceptionController {
 
@@ -18,7 +21,17 @@ public class ExceptionController {
                 .body(new ExceptionResponse(exceptionCode.getMessage(), exceptionCode));
     }
 
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<String> handleMethodArgumentNotValidException(MethodArgumentNotValidException e) {
+        String errorMessages = e.getBindingResult().getAllErrors().stream()
+                .map(ObjectError::getDefaultMessage)
+                .collect(Collectors.joining(", "));
+        return ResponseEntity
+                .badRequest().body(errorMessages);
+    }
+
     @AllArgsConstructor
+    @Getter
     public static class ExceptionResponse {
         private String message;
         private ExceptionCode exceptionCode;
