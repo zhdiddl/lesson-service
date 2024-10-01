@@ -3,19 +3,15 @@ package com.learnhive.lessonservice.service;
 
 import com.learnhive.lessonservice.auth.AuthenticatedUserService;
 import com.learnhive.lessonservice.auth.JwtTokenManager;
-import com.learnhive.lessonservice.auth.TokenProperties;
 import com.learnhive.lessonservice.domain.UserAccount;
 import com.learnhive.lessonservice.dto.UserAccountDto;
 import com.learnhive.lessonservice.exception.CustomException;
 import com.learnhive.lessonservice.exception.ExceptionCode;
 import com.learnhive.lessonservice.repository.UserAccountRepository;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,8 +19,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -35,9 +29,7 @@ public class UserAccountService {
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final JwtTokenManager jwtUtil;
-    private final TokenProperties tokenProperties;
     private final AuthenticatedUserService authenticatedUserService;
-    private final JwtValidationService jwtValidationService;
 
     @Transactional
     public UserAccount signUp(UserAccountDto userAccountDto) {
@@ -52,18 +44,15 @@ public class UserAccountService {
         }
 
         // User 객체 생성 및 저장
-        UserAccount userAccount = UserAccount.builder()
+        return UserAccount.builder()
                 .username(userAccountDto.getUsername())
                 .userPassword(passwordEncoder.encode(userAccountDto.getUserPassword()))
                 .email(userAccountDto.getEmail())
                 .build();
-
-        return userAccountRepository.save(userAccount);
     }
 
     @Transactional
-    public String signIn(String username, String password,
-                         boolean useCookie, HttpServletResponse response) {
+    public String signIn(String username, String password) {
         // 사용자 인증 처리 및 정보 로드
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
@@ -72,30 +61,17 @@ public class UserAccountService {
         UserAccount userAccount = userAccountRepository.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new CustomException(ExceptionCode.USER_NOT_FOUND));
         userAccount.setLastLogin(LocalDateTime.now());
-        userAccountRepository.save(userAccount);
 //
 //        // 인증된 사용자의 roles 변환
 //        Set<String> roles = userDetails.getAuthorities().stream()
 //                .map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
 
-        // 인증된 사용자 정보를 사용해 토큰 생성 및 저장
-        String token = jwtUtil.generateToken(userDetails.getUsername());
-
-        // 쿠키 사용시 토큰을 쿠키에 저장해서 반환
-        if (useCookie) {
-            Cookie cookie = new Cookie(tokenProperties.getCookieName(), token);
-            cookie.setHttpOnly(true);
-            cookie.setSecure(false);
-            cookie.setPath("/");
-            cookie.setMaxAge(60 * 60);
-            response.addCookie(cookie);
-        }
-
-        return token;
+        // 인증된 사용자 정보를 사용해 토큰 생성 및 반환
+        return jwtUtil.generateToken(userDetails.getUsername());
     }
 
     @Transactional
-    public void signOut(Long userId, HttpServletResponse response) {
+    public void signOut(Long userId) {
         // 현재 인증된 사용자 가져오기
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
@@ -103,9 +79,6 @@ public class UserAccountService {
         if (!Objects.equals(userId, authenticatedUser.getUserId())) { // 객체 비교 사용해서 null 반환 없이 false 반환 유도
             throw new CustomException(ExceptionCode.FORBIDDEN_ACTION);
         }
-
-        // 쿠키 무효화
-        jwtValidationService.clearTokenCookie(response);
     }
 
     @Transactional
@@ -136,12 +109,10 @@ public class UserAccountService {
                 authenticatedUser.setUserPassword(passwordEncoder.encode(updateForm.getUserPassword()));
             }
         }
-
-        userAccountRepository.save(authenticatedUser);
     }
 
     @Transactional
-    public void deleteUser(Long userId, HttpServletResponse response) {
+    public void deleteUser(Long userId) {
         // 현재 인증된 사용자 가져오기
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
@@ -152,8 +123,6 @@ public class UserAccountService {
 
         // 소프트 삭제 처리
         authenticatedUser.setDeleted(true);
-        userAccountRepository.save(authenticatedUser);
-        jwtValidationService.clearTokenCookie(response);
     }
 
     public String findUsernameByEmail(String email) {
