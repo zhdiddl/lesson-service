@@ -1,8 +1,8 @@
 package com.learnhive.lessonservice.config;
 
-import com.learnhive.lessonservice.auth.JwtAuthenticationFilter;
-import com.learnhive.lessonservice.auth.JwtTokenManager;
-import com.learnhive.lessonservice.auth.TokenProperties;
+import com.learnhive.lessonservice.jwt.JwtAuthenticationFilter;
+import com.learnhive.lessonservice.jwt.JwtTokenManager;
+import com.learnhive.lessonservice.jwt.TokenProperties;
 import com.learnhive.lessonservice.service.JwtBlacklistService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -11,6 +11,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -30,10 +31,13 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
+        http
+                .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests((requests) -> requests
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**",
-                                "/api/users/signUp", "/api/users/signIn", "api/users/username").permitAll()
+                                "/api/users/signUp", "/api/users/email-verification",
+                                "/api/users/signIn", "api/users/username").permitAll()
+                        .requestMatchers("api/coaches/**").hasRole("COACH")
                         .anyRequest().authenticated()
                 ).addFilterBefore(new JwtAuthenticationFilter(jwtUtil, userDetailsService, jwtBlacklistService, tokenProperties),
                         UsernamePasswordAuthenticationFilter.class)
