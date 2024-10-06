@@ -1,9 +1,7 @@
 package com.learnhive.lessonservice.dto;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
+import com.learnhive.lessonservice.domain.UserRole;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -27,5 +25,8 @@ public class UserAccountDto {
     @NotBlank(message = "이메일은 필수입니다.")
     @Email(message = "유효하지 않은 이메일 형식입니다.")
     private String email;
+
+    @NotEmpty(message = "COACH 혹은 CUSTOMER 중에 입력하세요. 권한은 설정 후 변경이 불가합니다.")
+    private UserRole userRole;
 
 }

@@ -1,8 +1,9 @@
-package com.learnhive.lessonservice.auth;
+package com.learnhive.lessonservice.security;
 
 import com.learnhive.lessonservice.domain.UserAccount;
 import com.learnhive.lessonservice.repository.UserAccountRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -26,16 +27,14 @@ public class CustomUserDetailsService implements UserDetailsService {
         if (userAccount.isDeleted()) {
             throw new UsernameNotFoundException("해당 계정은 삭제된 상태입니다: " + username);
         }
-//
-//        // roles 필드를 SimpleGrantedAuthority 로 변환
-//        List<GrantedAuthority> authorities = userAccount.getRoles().stream()
-//                .map(role -> new SimpleGrantedAuthority("ROLE_" + role)) // ROLE_ 붙여서 권한 생성
-//                .collect(Collectors.toList());
+
+        // UserRole 에서 GrantedAuthority 를 구현한 값을 가져오기
+        GrantedAuthority authority = userAccount.getUserRole();
 
         return new User(
                 userAccount.getUsername(),
                 userAccount.getUserPassword(),
-                Collections.emptyList()
+                Collections.singleton(authority) // 단일 권한을 컬렉션으로 반환
         );
     }
 }
