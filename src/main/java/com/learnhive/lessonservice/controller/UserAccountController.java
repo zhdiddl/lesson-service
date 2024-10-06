@@ -1,12 +1,12 @@
 package com.learnhive.lessonservice.controller;
 
-import com.learnhive.lessonservice.auth.JwtTokenManager;
-import com.learnhive.lessonservice.auth.TokenProperties;
-import com.learnhive.lessonservice.domain.UserAccount;
 import com.learnhive.lessonservice.dto.UserAccountDto;
+import com.learnhive.lessonservice.jwt.JwtTokenManager;
+import com.learnhive.lessonservice.jwt.TokenProperties;
 import com.learnhive.lessonservice.service.JwtBlacklistService;
 import com.learnhive.lessonservice.service.JwtValidationService;
 import com.learnhive.lessonservice.service.UserAccountService;
+import com.learnhive.lessonservice.service.UserEmailVerificationService;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("api/users")
+@RequestMapping("/api/users")
 public class UserAccountController {
 
     private final UserAccountService userService;
@@ -31,11 +31,19 @@ public class UserAccountController {
     private final JwtValidationService jwtValidationService;
     private final JwtBlacklistService jwtBlacklistService;
     private final TokenProperties tokenProperties;
+    private final UserEmailVerificationService userEmailVerificationService;
 
     @PostMapping("/signUp")
     public ResponseEntity<String> signUp(@Valid @RequestBody UserAccountDto userForm) {
-        UserAccount user = userService.signUp(userForm);
-        return ResponseEntity.ok("회원가입이 완료되었습니다. 사용자명: " + user.getUsername());
+        userService.signUp(userForm);
+        return ResponseEntity.ok("회원 가입이 완료되었습니다. 이메일 인증 완료를 30분 이내에 완료해 주세요.");
+    }
+
+    @PostMapping("/email-verification")
+    public ResponseEntity<String> verifyEmail (@RequestParam String email,
+                                               @RequestParam String verificationCode) {
+        userEmailVerificationService.validateEmailVerificationCode(email, verificationCode);
+        return ResponseEntity.ok("이메일 인증을 완료했습니다.");
     }
 
     @PostMapping("/signIn")
@@ -87,13 +95,14 @@ public class UserAccountController {
             log.warn(e.getMessage(), e);
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("유저 로그아웃 중 오류가 발생했습니다.");
+                    .body("사용자 계정 로그아웃 중 오류가 발생했습니다.");
         }
     }
 
     // 특정 토큰을 기준으로 다른 토큰들을 무효화하는 방식으로 모든 기기 로그아웃
     @PostMapping("/signOut-all")
-    public ResponseEntity<String> signOutAll(@Parameter(description = "직접 토큰 입력 가능") @RequestParam(required = false) String requestToken,
+    public ResponseEntity<String> signOutAll(@Parameter(description = "직접 토큰 입력 가능")
+                                                 @RequestParam(required = false) String requestToken,
                                              HttpServletRequest request, HttpServletResponse response) {
 
         String token = requestToken != null ? requestToken : jwtValidationService.extractToken(request);
@@ -108,14 +117,14 @@ public class UserAccountController {
     }
 
     @GetMapping("/username")
-    public ResponseEntity<String> getUsernameByEmail(@Parameter(description = "조회를 원하는 유저 이메일", required = true)
+    public ResponseEntity<String> getUsernameByEmail(@Parameter(description = "조회를 원하는 사용자 계정 이메일", required = true)
                                                      @RequestParam String email) {
         String usernameByEmail = userService.findUsernameByEmail(email);
         return ResponseEntity.ok("조회 결과: " + usernameByEmail);
     }
 
     @PutMapping("/{userId}")
-    public ResponseEntity<String> updateUser(@Parameter(description = "정보를 변경할 유저 아이디", required = true)
+    public ResponseEntity<String> updateUser(@Parameter(description = "정보를 변경할 사용자 계정 아이디", required = true)
                                              @PathVariable Long userId,
                                              @Valid @RequestBody UserAccountDto updateForm) {
         userService.updateUser(userId, updateForm);
@@ -123,20 +132,20 @@ public class UserAccountController {
     }
 
     @DeleteMapping("/{userId}")
-    public ResponseEntity<String> deleteUser(@Parameter(description = "삭제할 유저 아이디", required = true)
+    public ResponseEntity<String> deleteUser(@Parameter(description = "삭제할 사용자 계정 아이디", required = true)
                                              @PathVariable Long userId,
                                              HttpServletResponse response) {
         try {
         userService.deleteUser(userId);
         jwtValidationService.clearTokenCookie(response);
 
-        return ResponseEntity.ok("아이디를 성공적으로 삭제했습니다.");
+        return ResponseEntity.ok("사용자 계정 삭제가 완료되었습니다.");
 
         } catch (Exception e) {
             log.warn(e.getMessage(), e);
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("유저 삭제 중 오류가 발생했습니다.");
+                    .body("사용자 계정 삭제 중 오류가 발생했습니다.");
         }
     }
 }
