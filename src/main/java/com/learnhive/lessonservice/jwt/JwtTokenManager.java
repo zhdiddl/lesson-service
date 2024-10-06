@@ -1,4 +1,4 @@
-package com.learnhive.lessonservice.auth;
+package com.learnhive.lessonservice.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Date;
-import java.util.Set;
 
 @Component
 public class JwtTokenManager {

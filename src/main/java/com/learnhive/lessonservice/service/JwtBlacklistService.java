@@ -1,7 +1,7 @@
 package com.learnhive.lessonservice.service;
 
-import com.learnhive.lessonservice.auth.JwtTokenManager;
 import com.learnhive.lessonservice.domain.JwtBlacklist;
+import com.learnhive.lessonservice.jwt.JwtTokenManager;
 import com.learnhive.lessonservice.repository.JwtBlacklistRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
