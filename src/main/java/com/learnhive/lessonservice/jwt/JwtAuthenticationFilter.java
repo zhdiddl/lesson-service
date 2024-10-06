@@ -1,4 +1,4 @@
-package com.learnhive.lessonservice.auth;
+package com.learnhive.lessonservice.jwt;
 
 import com.learnhive.lessonservice.service.JwtBlacklistService;
 import jakarta.servlet.FilterChain;
