@@ -1,4 +1,4 @@
-package com.learnhive.lessonservice.auth;
+package com.learnhive.lessonservice.security;
 
 import com.learnhive.lessonservice.domain.UserAccount;
 import com.learnhive.lessonservice.exception.CustomException;
@@ -18,13 +18,15 @@ public class AuthenticatedUserService {
 
     public UserAccount getAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new CustomException(ExceptionCode.UNAUTHORIZED_USER);
         }
 
         Object principal = authentication.getPrincipal();
-        if (principal instanceof UserDetails) {
-            String username = ((UserDetails) principal).getUsername();
+
+        if (principal instanceof UserDetails userDetails) {
+            String username = userDetails.getUsername();
             return userRepository.findByUsername(username)
                     .orElseThrow(() -> new CustomException(ExceptionCode.USER_NOT_FOUND));
         }
