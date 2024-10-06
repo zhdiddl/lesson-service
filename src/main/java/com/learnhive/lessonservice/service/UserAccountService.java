@@ -1,15 +1,15 @@
 package com.learnhive.lessonservice.service;
 
-
-import com.learnhive.lessonservice.auth.AuthenticatedUserService;
-import com.learnhive.lessonservice.auth.JwtTokenManager;
 import com.learnhive.lessonservice.domain.UserAccount;
 import com.learnhive.lessonservice.dto.UserAccountDto;
 import com.learnhive.lessonservice.exception.CustomException;
 import com.learnhive.lessonservice.exception.ExceptionCode;
+import com.learnhive.lessonservice.jwt.JwtTokenManager;
 import com.learnhive.lessonservice.repository.UserAccountRepository;
+import com.learnhive.lessonservice.security.AuthenticatedUserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class UserAccountService {
@@ -30,9 +31,10 @@ public class UserAccountService {
     private final UserDetailsService userDetailsService;
     private final JwtTokenManager jwtUtil;
     private final AuthenticatedUserService authenticatedUserService;
+    private final UserEmailVerificationService userEmailVerificationService;
 
     @Transactional
-    public UserAccount signUp(UserAccountDto userAccountDto) {
+    public void signUp(UserAccountDto userAccountDto) {
         // 이메일 중복 확인
         if (userAccountRepository.existsByEmail(userAccountDto.getEmail())) {
             throw new CustomException(ExceptionCode.EMAIL_ALREADY_EXISTS);
@@ -44,11 +46,16 @@ public class UserAccountService {
         }
 
         // User 객체 생성 및 저장
-        return UserAccount.builder()
-                .username(userAccountDto.getUsername())
-                .userPassword(passwordEncoder.encode(userAccountDto.getUserPassword()))
-                .email(userAccountDto.getEmail())
-                .build();
+         UserAccount newUserAccount = UserAccount.of(
+                 userAccountDto.getUsername(),
+                 passwordEncoder.encode(userAccountDto.getUserPassword()),
+                 userAccountDto.getEmail(),
+                 userAccountDto.getUserRole()
+         );
+        userAccountRepository.save(newUserAccount);
+
+        // 이메일 인증 요청 전송
+        userEmailVerificationService.sendEmailVerificationRequest(newUserAccount);
     }
 
     @Transactional
@@ -61,10 +68,6 @@ public class UserAccountService {
         UserAccount userAccount = userAccountRepository.findByUsername(userDetails.getUsername())
                 .orElseThrow(() -> new CustomException(ExceptionCode.USER_NOT_FOUND));
         userAccount.setLastLogin(LocalDateTime.now());
-//
-//        // 인증된 사용자의 roles 변환
-//        Set<String> roles = userDetails.getAuthorities().stream()
-//                .map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
 
         // 인증된 사용자 정보를 사용해 토큰 생성 및 반환
         return jwtUtil.generateToken(userDetails.getUsername());
@@ -76,7 +79,7 @@ public class UserAccountService {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
         // 현재 인증된 사용자 아이디와 삭제 요청한 계정 아이디가 같은지 확인
-        if (!Objects.equals(userId, authenticatedUser.getUserId())) { // 객체 비교 사용해서 null 반환 없이 false 반환 유도
+        if (!Objects.equals(userId, authenticatedUser.getId())) { // 객체 비교 사용해서 null 반환 없이 false 반환 유도
             throw new CustomException(ExceptionCode.FORBIDDEN_ACTION);
         }
     }
@@ -87,7 +90,7 @@ public class UserAccountService {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
         // 현재 인증된 사용자 아이디와 정보 변경 요청한 계정 아이디가 같은지 확인
-        if (!Objects.equals(userId, authenticatedUser.getUserId())) { // 객체 비교 사용해서 null 반환 없이 false 반환 유도
+        if (!Objects.equals(userId, authenticatedUser.getId())) { // 객체 비교 사용해서 null 반환 없이 false 반환 유도
             throw new CustomException(ExceptionCode.FORBIDDEN_ACTION);
         }
 
@@ -117,7 +120,7 @@ public class UserAccountService {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
         // 현재 인증된 사용자 아이디와 삭제 요청한 계정 아이디가 같은지 확인
-        if (!Objects.equals(userId, authenticatedUser.getUserId())) { // 객체 비교 사용해서 null 반환 없이 false 반환 유도
+        if (!Objects.equals(userId, authenticatedUser.getId())) { // 객체 비교 사용해서 null 반환 없이 false 반환 유도
             throw new CustomException(ExceptionCode.FORBIDDEN_ACTION);
         }
 
@@ -129,10 +132,12 @@ public class UserAccountService {
         UserAccount userAccount = userAccountRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ExceptionCode.USER_NOT_FOUND));
 
-        // 계정이 삭제되었는지 확인 (soft delete 처리된 계정 차단)
-        if (userAccount.isDeleted()) {
-            return "계정이 존재하지 않습니다.";
+        if (!userAccount.isEmailVerified()) {
+            return "요청한 이메일로 인증을 완료한 사용자의 계정을 찾을 수 없습니다.";
+        } else if (userAccount.isDeleted()) {
+            return "요청한 이메일의 사용자 계정은 삭제 처리되었습니다.";
         }
+
         return userAccount.getUsername();
     }
 }
