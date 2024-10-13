@@ -1,6 +1,7 @@
-package com.learnhive.lessonservice.domain;
+package com.learnhive.lessonservice.domain.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.learnhive.lessonservice.domain.AuditingFields;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

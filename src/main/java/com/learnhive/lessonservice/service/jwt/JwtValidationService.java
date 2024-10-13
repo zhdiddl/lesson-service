@@ -1,4 +1,4 @@
-package com.learnhive.lessonservice.service;
+package com.learnhive.lessonservice.service.jwt;
 
 import com.learnhive.lessonservice.jwt.TokenProperties;
 import jakarta.servlet.http.Cookie;

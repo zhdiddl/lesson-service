@@ -1,5 +1,6 @@
-package com.learnhive.lessonservice.domain;
+package com.learnhive.lessonservice.domain.user;
 
+import com.learnhive.lessonservice.domain.AuditingFields;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -10,7 +11,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-public class JwtBlacklist extends AuditingFields{
+public class JwtBlacklist extends AuditingFields {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

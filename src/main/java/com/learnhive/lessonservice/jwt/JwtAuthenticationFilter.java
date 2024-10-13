@@ -1,6 +1,6 @@
 package com.learnhive.lessonservice.jwt;
 
-import com.learnhive.lessonservice.service.JwtBlacklistService;
+import com.learnhive.lessonservice.service.jwt.JwtBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
