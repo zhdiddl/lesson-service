@@ -1,4 +1,4 @@
-package com.learnhive.lessonservice.domain;
+package com.learnhive.lessonservice.domain.user;
 
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;

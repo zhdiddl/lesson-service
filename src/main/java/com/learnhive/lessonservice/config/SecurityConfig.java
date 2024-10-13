@@ -3,7 +3,7 @@ package com.learnhive.lessonservice.config;
 import com.learnhive.lessonservice.jwt.JwtAuthenticationFilter;
 import com.learnhive.lessonservice.jwt.JwtTokenManager;
 import com.learnhive.lessonservice.jwt.TokenProperties;
-import com.learnhive.lessonservice.service.JwtBlacklistService;
+import com.learnhive.lessonservice.service.jwt.JwtBlacklistService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +38,7 @@ public class SecurityConfig {
                                 "/api/users/signUp", "/api/users/email-verification",
                                 "/api/users/signIn", "api/users/username").permitAll()
                         .requestMatchers("api/coaches/**").hasRole("COACH")
+                        .requestMatchers("api/customers/**").hasRole("CUSTOMER")
                         .anyRequest().authenticated()
                 ).addFilterBefore(new JwtAuthenticationFilter(jwtUtil, userDetailsService, jwtBlacklistService, tokenProperties),
                         UsernamePasswordAuthenticationFilter.class)
