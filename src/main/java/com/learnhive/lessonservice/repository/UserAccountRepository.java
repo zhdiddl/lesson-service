@@ -1,6 +1,6 @@
 package com.learnhive.lessonservice.repository;
 
-import com.learnhive.lessonservice.domain.UserAccount;
+import com.learnhive.lessonservice.domain.user.UserAccount;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
