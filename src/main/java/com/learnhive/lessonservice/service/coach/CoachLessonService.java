@@ -1,7 +1,8 @@
-package com.learnhive.lessonservice.service;
+package com.learnhive.lessonservice.service.coach;
 
-import com.learnhive.lessonservice.domain.Lesson;
-import com.learnhive.lessonservice.domain.UserAccount;
+import com.learnhive.lessonservice.domain.lesson.Lesson;
+import com.learnhive.lessonservice.domain.lesson.LessonStatus;
+import com.learnhive.lessonservice.domain.user.UserAccount;
 import com.learnhive.lessonservice.dto.LessonDto;
 import com.learnhive.lessonservice.exception.CustomException;
 import com.learnhive.lessonservice.exception.ExceptionCode;
@@ -21,7 +22,15 @@ public class CoachLessonService {
     @Transactional
     public void createLesson(LessonDto lessonDto) {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
-        Lesson newLesson = Lesson.of(authenticatedUser, lessonDto.getTitle(), lessonDto.getPrice(), lessonDto.getDescription());
+
+        // 객체 생성
+        Lesson newLesson = Lesson.of(
+                authenticatedUser,
+                lessonDto.title(),
+                lessonDto.price(),
+                lessonDto.description(),
+                lessonDto.status()
+        );
         lessonRepository.save(newLesson);
     }
 
@@ -29,40 +38,26 @@ public class CoachLessonService {
     public void updateLesson(Long lessonId, LessonDto lessonDto) {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
-        // 레슨 조회
-        Lesson existingLesson = lessonRepository.findById(lessonId)
+        // 업데이트 가능한 레슨 조회
+        Lesson existingLesson = lessonRepository.findByIdAndCoachIdAndLessonStatus(
+                        lessonId, authenticatedUser.getId(), LessonStatus.INACTIVE)
                 .orElseThrow(() -> new CustomException(ExceptionCode.LESSON_NOT_FOUND));
 
         // 변경된 값을 업데이트
-        if (lessonDto.getTitle() != null && !lessonDto.getTitle().equals(existingLesson.getTitle())) {
-            existingLesson.setTitle(lessonDto.getTitle());
-        }
-        if (lessonDto.getPrice() != null && !lessonDto.getPrice().equals(existingLesson.getPrice())) {
-            existingLesson.setPrice(lessonDto.getPrice());
-        }
-        if (lessonDto.getDescription() != null && !lessonDto.getDescription().equals(existingLesson.getDescription())) {
-            existingLesson.setDescription(lessonDto.getDescription());
-        }
+        existingLesson.updateTitle(lessonDto.title());
+        existingLesson.updatePrice(lessonDto.price());
+        existingLesson.updateDescription(lessonDto.description());
+        existingLesson.updateStatus(lessonDto.status());
     }
 
     @Transactional
     public void deleteLesson(Long lessonId) {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
-        // 레슨 조회
-        Lesson existingLesson = lessonRepository.findById(lessonId)
+        // 삭제 가능한 레슨 확인
+        Lesson existingLesson = lessonRepository.findByIdAndCoachIdAndLessonStatus(
+                        lessonId, authenticatedUser.getId(), LessonStatus.INACTIVE)
                 .orElseThrow(() -> new CustomException(ExceptionCode.LESSON_NOT_FOUND));
-
-        // 본인이 만든 레슨인지 확인
-        if (!existingLesson.getCoach().equals(authenticatedUser)) {
-            throw new CustomException(ExceptionCode.FORBIDDEN_ACTION);
-        }
-//
-//        // 예약 고객이 이미 있는지 확인
-//        boolean hasOrders = reservationRepository.existsByLesson(existingLesson);
-//        if (hasOrders) {
-//            throw new CustomException(ExceptionCode.CANNOT_DELETE_PURCHASED_LESSON);
-//        }
 
         // 삭제 처리
         lessonRepository.delete(existingLesson);
