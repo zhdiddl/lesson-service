@@ -1,6 +1,6 @@
 package com.learnhive.lessonservice.service;
 
-import com.learnhive.lessonservice.domain.UserAccount;
+import com.learnhive.lessonservice.domain.user.UserAccount;
 import com.learnhive.lessonservice.dto.UserAccountDto;
 import com.learnhive.lessonservice.exception.CustomException;
 import com.learnhive.lessonservice.exception.ExceptionCode;
@@ -36,25 +36,25 @@ public class UserAccountService {
     @Transactional
     public void signUp(UserAccountDto userAccountDto) {
         // 이메일 중복 확인
-        if (userAccountRepository.existsByEmail(userAccountDto.getEmail())) {
+        if (userAccountRepository.existsByEmail(userAccountDto.email())) {
             throw new CustomException(ExceptionCode.EMAIL_ALREADY_EXISTS);
         }
 
         // 사용자명 중복 확인
-        if (userAccountRepository.existsByEmail(userAccountDto.getUsername())) {
+        if (userAccountRepository.existsByEmail(userAccountDto.username())) {
             throw new CustomException(ExceptionCode.USERNAME_ALREADY_EXISTS);
         }
 
         // User 객체 생성 및 저장
          UserAccount newUserAccount = UserAccount.of(
-                 userAccountDto.getUsername(),
-                 passwordEncoder.encode(userAccountDto.getUserPassword()),
-                 userAccountDto.getEmail(),
-                 userAccountDto.getUserRole()
+                 userAccountDto.username(),
+                 passwordEncoder.encode(userAccountDto.userPassword()),
+                 userAccountDto.email(),
+                 userAccountDto.userRole()
          );
         userAccountRepository.save(newUserAccount);
 
-        // 이메일 인증 요청 전송
+        // 이메일 인증 요청 전
         userEmailVerificationService.sendEmailVerificationRequest(newUserAccount);
     }
 
@@ -95,21 +95,21 @@ public class UserAccountService {
         }
 
         // 회원 정보 수정
-        if (updateForm.getUsername() != null && authenticatedUser.getUsername().equals(updateForm.getUsername())) {
-            if (userAccountRepository.existsByUsername(updateForm.getUsername())) {
+        if (updateForm.username() != null && authenticatedUser.getUsername().equals(updateForm.username())) {
+            if (userAccountRepository.existsByUsername(updateForm.username())) {
                 throw new CustomException(ExceptionCode.USERNAME_ALREADY_EXISTS);
             }
-            authenticatedUser.setUsername(updateForm.getUsername());
+            authenticatedUser.setUsername(updateForm.username());
         }
-        if (updateForm.getEmail() != null && authenticatedUser.getEmail().equals(updateForm.getEmail())) {
-            if (userAccountRepository.existsByEmail(updateForm.getEmail())) {
+        if (updateForm.email() != null && authenticatedUser.getEmail().equals(updateForm.email())) {
+            if (userAccountRepository.existsByEmail(updateForm.email())) {
                 throw new CustomException(ExceptionCode.EMAIL_ALREADY_EXISTS);
             }
-            authenticatedUser.setEmail(updateForm.getEmail());
+            authenticatedUser.setEmail(updateForm.email());
         }
-        if (updateForm.getUserPassword() != null) {
-            if (userAccountRepository.existsByUsername(updateForm.getUsername())) {
-                authenticatedUser.setUserPassword(passwordEncoder.encode(updateForm.getUserPassword()));
+        if (updateForm.userPassword() != null) {
+            if (userAccountRepository.existsByUsername(updateForm.username())) {
+                authenticatedUser.setUserPassword(passwordEncoder.encode(updateForm.userPassword()));
             }
         }
     }

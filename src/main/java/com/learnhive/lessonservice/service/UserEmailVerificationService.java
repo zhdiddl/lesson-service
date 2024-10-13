@@ -2,7 +2,7 @@ package com.learnhive.lessonservice.service;
 
 import com.learnhive.lessonservice.client.MailgunClient;
 import com.learnhive.lessonservice.client.MailgunForm;
-import com.learnhive.lessonservice.domain.UserAccount;
+import com.learnhive.lessonservice.domain.user.UserAccount;
 import com.learnhive.lessonservice.exception.CustomException;
 import com.learnhive.lessonservice.exception.ExceptionCode;
 import com.learnhive.lessonservice.repository.UserAccountRepository;

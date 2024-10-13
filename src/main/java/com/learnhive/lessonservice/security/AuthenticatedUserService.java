@@ -1,6 +1,6 @@
 package com.learnhive.lessonservice.security;
 
-import com.learnhive.lessonservice.domain.UserAccount;
+import com.learnhive.lessonservice.domain.user.UserAccount;
 import com.learnhive.lessonservice.exception.CustomException;
 import com.learnhive.lessonservice.exception.ExceptionCode;
 import com.learnhive.lessonservice.repository.UserAccountRepository;

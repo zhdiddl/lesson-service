@@ -1,6 +1,6 @@
-package com.learnhive.lessonservice.service;
+package com.learnhive.lessonservice.service.jwt;
 
-import com.learnhive.lessonservice.domain.JwtBlacklist;
+import com.learnhive.lessonservice.domain.user.JwtBlacklist;
 import com.learnhive.lessonservice.jwt.JwtTokenManager;
 import com.learnhive.lessonservice.repository.JwtBlacklistRepository;
 import lombok.RequiredArgsConstructor;

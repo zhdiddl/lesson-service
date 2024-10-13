@@ -11,7 +11,17 @@ services:
       - "3306:3306"
     volumes:
       - learnhive_db_data:/var/lib/mysql
-    restart: unless-stopped               # 자동 재시작 설정
+    restart: unless-stopped
+
+  redis:
+    image: redis:latest
+    container_name: redis-container
+    ports:
+      - "6379:6379"
+    volumes:
+      - learnhive_redis_data:/data
+    restart: unless-stopped
 
 volumes:
   learnhive_db_data:
+  learnhive_redis_data:
