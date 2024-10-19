@@ -53,13 +53,13 @@ public class CustomerOrderService {
             // 1. 고객 잔액 차감
             customerBalanceService.adjustCustomerBalance(authenticatedUser.getId(), CustomerBalanceDto.builder()
                     .initiator(authenticatedUser.getUsername())
-                    .message("주문 결제로 잔액 차감")
+                    .balanceChangeReason("주문 결제로 잔액 차감")
                     .requestedAmount(-orderTotalPrice)
                     .build());
 
-            // 2. 주문한 레슨 슬롯 재고 차감
+            // 주문한 레슨 슬롯 재고 차감
             for (Cart.Lesson selectedLesson : customerCart.getLessons()) {
-                for (Cart.LessonSlot selectedSlot : selectedLesson.getLessonSlots()) {
+                for (Cart.Lesson.LessonSlot selectedSlot : selectedLesson.getLessonSlots()) {
                     LessonSlot lessonSlot = lessonSlotRepository.findById(selectedSlot.getId())
                             .orElseThrow(() -> new CustomException(ExceptionCode.LESSON_SLOT_NOT_FOUND));
                     lessonSlot.updateQuantity(lessonSlot.getQuantity() - selectedSlot.getQuantity());
@@ -83,7 +83,7 @@ public class CustomerOrderService {
 
             if (optionalCartLesson.isPresent()) {
                 Cart.Lesson cartLesson = optionalCartLesson.get();
-                for (Cart.LessonSlot currentCartSlot : currentCartLesson.getLessonSlots()) {
+                for (Cart.Lesson.LessonSlot currentCartSlot : currentCartLesson.getLessonSlots()) {
                     cartLesson.getLessonSlots()
                             .removeIf(slot -> slot.getId().equals(currentCartSlot.getId()));
                 }

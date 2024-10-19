@@ -12,12 +12,8 @@ public class RedisCartService {
     private final RedisClient redisClient;
 
     public Cart getCart(Long customerId) {
-        Cart cart = redisClient.get(customerId, Cart.class);
-        if (cart == null) {
-            cart = new Cart();
-            cart.setCustomerId(customerId);
-        }
-        return cart;
+        return redisClient.get(customerId, Cart.class)
+                .orElseGet(() -> new Cart(customerId));
     }
 
     public Cart putCart(Long customerId, Cart cart) {

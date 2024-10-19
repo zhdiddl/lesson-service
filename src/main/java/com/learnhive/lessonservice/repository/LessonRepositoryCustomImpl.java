@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+
 @RequiredArgsConstructor
 @Repository
 public class LessonRepositoryCustomImpl implements LessonRepositoryCustom {
@@ -28,4 +29,3 @@ public class LessonRepositoryCustomImpl implements LessonRepositoryCustom {
                 .fetch();        // 가져오기 수행
     }
 }
-

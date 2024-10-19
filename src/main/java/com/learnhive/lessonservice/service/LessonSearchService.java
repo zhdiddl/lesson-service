@@ -28,5 +28,4 @@ public class LessonSearchService {
     public List<Lesson> getListByLessonIds(List<Long> lessonIds) {
         return lessonRepository.findAllByIdIn(lessonIds);
     }
-
 }

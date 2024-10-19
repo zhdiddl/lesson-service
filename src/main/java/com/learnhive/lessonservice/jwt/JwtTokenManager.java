@@ -50,14 +50,6 @@ public class JwtTokenManager {
                 .getBody();
         return claims.getSubject();
     }
-//
-//    public Set<String> getRolesFromToken(String token) {
-//        Claims claims = Jwts.parser()
-//                .setSigningKey(secretKey)
-//                .parseClaimsJws(token)
-//                .getBody();
-//        return claims.get("roles", Set.class);
-//    }
 
     public Instant getExpirationDateFromToken(String token) {
         Claims claims = Jwts.parser()
