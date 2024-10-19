@@ -1,18 +1,16 @@
 package com.learnhive.lessonservice.domain.user;
 
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 
+@RequiredArgsConstructor
 @Getter
 public enum UserRole implements GrantedAuthority {
     COACH("ROLE_COACH"),
-    CLIENT("ROLE_CLIENT");
+    CUSTOMER("ROLE_CUSTOMER");
 
     private final String roleName;
-
-    UserRole(String roleName) {
-        this.roleName = roleName;
-    }
 
     @Override
     public String getAuthority() {
