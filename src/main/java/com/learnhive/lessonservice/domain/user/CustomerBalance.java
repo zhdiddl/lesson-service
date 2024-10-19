@@ -1,10 +1,13 @@
 package com.learnhive.lessonservice.domain.user;
 
 import com.learnhive.lessonservice.domain.AuditingFields;
+import com.learnhive.lessonservice.dto.CustomerBalanceDto;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-@Setter
 @Getter
 @Builder
 @AllArgsConstructor
@@ -24,6 +27,13 @@ public class CustomerBalance extends AuditingFields {
     private Integer currentBalance;
 
     private String initiator;
-    private String description;
+    private String balanceChangeReason;
 
+    public CustomerBalanceDto toDto() {
+        return CustomerBalanceDto.builder()
+                .initiator(this.initiator)
+                .balanceChangeReason(this.balanceChangeReason)
+                .requestedAmount(this.requestedAmount)
+                .build();
+    }
 }

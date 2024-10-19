@@ -1,6 +1,5 @@
 package com.learnhive.lessonservice.controller;
 
-import com.learnhive.lessonservice.domain.user.CustomerBalance;
 import com.learnhive.lessonservice.dto.CustomerBalanceDto;
 import com.learnhive.lessonservice.service.customer.CustomerBalanceService;
 import lombok.RequiredArgsConstructor;
@@ -14,14 +13,13 @@ public class CustomerBalanceController {
 
     private final CustomerBalanceService customerBalanceService;
 
-    // 고객 잔액 조정
+    // 고객 예치금 조정
     @PostMapping("/adjust")
-    public ResponseEntity<Void> adjustCustomerBalance(
+    public ResponseEntity<CustomerBalanceDto> adjustCustomerBalance(
             @PathVariable Long customerId,
             @RequestBody CustomerBalanceDto balanceDto
     ) {
-        customerBalanceService.adjustCustomerBalance(customerId, balanceDto);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(customerBalanceService.adjustCustomerBalance(customerId, balanceDto));
     }
 
     // 고객의 최신 잔액 기록 조회
