@@ -5,14 +5,16 @@ import com.learnhive.lessonservice.domain.user.UserAccount;
 import com.learnhive.lessonservice.exception.CustomException;
 import com.learnhive.lessonservice.exception.ExceptionCode;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 @Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @ToString(callSuper = true)
 @Entity
 public class Lesson extends AuditingFields {
@@ -36,35 +38,22 @@ public class Lesson extends AuditingFields {
     private LessonStatus lessonStatus = LessonStatus.INACTIVE;
 
     @ToString.Exclude
-    @OrderBy("startTime DESC")
+    @OrderBy("startTime")
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<LessonSlot> lessonSlots = new HashSet<>(); // 초기화된 후 참조값을 불변으로 유지하기 위해 dto 사용
+    private List<LessonSlot> lessonSlots = new ArrayList<>();
 
 
-    protected Lesson() {}
-
-    private Lesson(UserAccount coach, String title, Integer price, String description, LessonStatus lessonStatus) {
-        this.coach = coach;
-        this.title = title;
-        this.price = price;
-        this.description = description;
-        this.lessonStatus = lessonStatus;
-    }
-
-    public static Lesson of(UserAccount coach, String title, Integer price, String description, LessonStatus status) {
-        return new Lesson(coach, title, price, description, status);
-    }
-
-
+    // 제목 변경 메소드
     public void updateTitle(String newTitle) {
         if (newTitle.isEmpty()) {
-            throw new CustomException(ExceptionCode.INVALID_INPUT_REQUEST);
+            throw new CustomException(ExceptionCode.UPDATE_FAIL_DUE_TO_INVALID_INPUT);
         }
         if (!newTitle.equals(this.title)) {
             this.title = newTitle;
         }
     }
 
+    // 가격 변경 메소드
     public void updatePrice(Integer newPrice) {
         if (Objects.isNull(newPrice) || newPrice < 0) {
             throw new CustomException(ExceptionCode.INVALID_PRICE_REQUEST);
@@ -74,18 +63,20 @@ public class Lesson extends AuditingFields {
         }
     }
 
+    // 설명 변경 메소드
     public void updateDescription(String newDescription) {
         if (Objects.isNull(newDescription)) {
-            throw new CustomException(ExceptionCode.INVALID_INPUT_REQUEST);
+            throw new CustomException(ExceptionCode.UPDATE_FAIL_DUE_TO_INVALID_INPUT);
         }
         if (!newDescription.equals(this.description)) {
             this.description = newDescription;
         }
     }
 
+    // 활성화 상태 변경 메소드 (기본은 비활성화)
     public void updateStatus(LessonStatus newStatus) {
         if (Objects.isNull(newStatus)) {
-            throw new CustomException(ExceptionCode.INVALID_INPUT_REQUEST);
+            throw new CustomException(ExceptionCode.UPDATE_FAIL_DUE_TO_INVALID_INPUT);
         }
         if (!Objects.equals(newStatus, this.lessonStatus)) {
             this.lessonStatus = newStatus;
