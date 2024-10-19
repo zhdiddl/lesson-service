@@ -1,11 +1,8 @@
 package com.learnhive.lessonservice.domain.redis;
 
-import com.learnhive.lessonservice.dto.LessonCartRequestDto;
+import com.learnhive.lessonservice.dto.CartDto;
 import jakarta.persistence.Id;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.springframework.data.redis.core.RedisHash;
 
 import java.time.LocalDateTime;
@@ -13,9 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
-@RedisHash("cart")
+@RedisHash("cart") // Redis 데이터베이스에 저장될 엔티티로 지정
 public class Cart {
 
     @Id
@@ -27,12 +25,26 @@ public class Cart {
         this.customerId = customerId;
     }
 
-    public void addMessage(String message) {
+    public void addMessages(String message) {
         messages.add(message);
     }
 
+    public void clearMessages() {
+        messages.clear();
+    }
 
-    @Data
+    public CartDto toDto() {
+        return new CartDto(
+                this.customerId,
+                this.lessons.stream()
+                        .map(Lesson::toDto)
+                        .collect(Collectors.toList()),
+                new ArrayList<>(this.messages) // 메시지 리스트 복사
+        );
+    }
+
+    @Getter
+    @Setter
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
@@ -41,40 +53,59 @@ public class Cart {
         private Long coachId;
         private String title;
         private Integer price;
+        private String description;
         private List<LessonSlot> lessonSlots = new ArrayList<>();
 
-        // LessonCartRequestDto를 받아 Lesson 객체로 변환하는 메서드
-        public static Lesson fromRequestForm(LessonCartRequestDto form) {
+        public static Lesson fromDto(CartDto.Lesson lessonForm) {
             return Lesson.builder()
-                    .id(form.id())
-                    .coachId(form.coachId())
-                    .title(form.title())
-                    .price(form.price())
-                    .lessonSlots(form.lessonSlots().stream()
-                            .map(LessonSlot::fromRequestForm)
+                    .id(lessonForm.id())
+                    .coachId(lessonForm.coachId())
+                    .title(lessonForm.title())
+                    .price(lessonForm.price())
+                    .lessonSlots(lessonForm.lessonSlots().stream()
+                            .map(LessonSlot::fromDto)
                             .collect(Collectors.toList()))
                     .build();
         }
-    }
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class LessonSlot {
-        private Long id;
-        private LocalDateTime startTime;
-        private Integer quantity;
+        public CartDto.Lesson toDto() {
+            return new CartDto.Lesson(
+                    this.id,
+                    this.coachId,
+                    this.title,
+                    this.price,
+                    this.description,
+                    this.lessonSlots.stream()
+                            .map(LessonSlot::toDto)
+                            .collect(Collectors.toList())
+            );
+        }
 
-        // LessonCartRequestDto.LessonSlot를 받아 LessonSlot 객체로 변환하는 메서드
-        public static LessonSlot fromRequestForm(LessonCartRequestDto.LessonSlot slotForm) {
-            return LessonSlot.builder()
-                    .id(slotForm.id())
-                    .startTime(slotForm.startTime())
-                    .quantity(slotForm.quantity())
-                    .build();
+        @Getter
+        @Setter
+        @NoArgsConstructor
+        @AllArgsConstructor
+        @Builder
+        public static class LessonSlot {
+            private Long id;
+            private LocalDateTime startTime;
+            private Integer quantity;
+
+            public static LessonSlot fromDto(CartDto.Lesson.LessonSlot slotForm) {
+                return LessonSlot.builder()
+                        .id(slotForm.id())
+                        .startTime(slotForm.startTime())
+                        .quantity(slotForm.quantity())
+                        .build();
+            }
+
+            public CartDto.Lesson.LessonSlot toDto() {
+                return new CartDto.Lesson.LessonSlot(
+                        this.id,
+                        this.startTime,
+                        this.quantity
+                );
+            }
         }
     }
-
-
 }

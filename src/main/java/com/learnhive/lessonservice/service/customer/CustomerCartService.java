@@ -4,7 +4,7 @@ import com.learnhive.lessonservice.domain.lesson.Lesson;
 import com.learnhive.lessonservice.domain.lesson.LessonSlot;
 import com.learnhive.lessonservice.domain.redis.Cart;
 import com.learnhive.lessonservice.domain.user.UserAccount;
-import com.learnhive.lessonservice.dto.LessonCartRequestDto;
+import com.learnhive.lessonservice.dto.CartDto;
 import com.learnhive.lessonservice.exception.CustomException;
 import com.learnhive.lessonservice.exception.ExceptionCode;
 import com.learnhive.lessonservice.security.AuthenticatedUserService;
@@ -27,31 +27,33 @@ public class CustomerCartService {
     private final LessonSearchService lessonSearchService;
     private final RedisCartService redisCartService;
 
-    public Cart addLessonToCartFromLessonPage(LessonCartRequestDto form) {
+    public Cart addLessonToCartFromLessonPage(CartDto form) {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
-        // 슬롯 선택을 하지 않은 레슨을 장바구니에 담으려고 하는 경우 예외 처리
-        if (form.lessonSlots() == null || form.lessonSlots().isEmpty()) {
-            throw new CustomException(ExceptionCode.INVALID_LESSON_SLOT);
-        }
+        // 고객의 장바구니를 불러오기 (기존 장바구니가 없다면 새 장바구니 생성)
+        Cart currentCart = redisCartService.getCart(authenticatedUser.getId());
 
-        // 레슨 정보 조회
-        Lesson dbLesson = lessonSearchService.getByLessonId(form.id());
-        if (dbLesson == null) {
+        // 슬롯 선택을 하지 않은 레슨을 장바구니에 담으려고 하는 경우 예외 처리
+        if (form.lessons() == null || form.lessons().isEmpty()) {
             throw new CustomException(ExceptionCode.LESSON_NOT_FOUND);
         }
 
-        // 해당 고객의 장바구니를 가져옴 (없으면 새 장바구니 생성)
-        Cart currentCart = redisCartService.getCart(authenticatedUser.getId());
+        for (CartDto.Lesson lesson : form.lessons()) {
+            if (lesson.lessonSlots() == null || lesson.lessonSlots().isEmpty()) {
+                throw new CustomException(ExceptionCode.LESSON_SLOT_NOT_FOUND);
+            }
 
-        // 장바구니 요청 수량이 재고량보다 크지 않은지 확인
-        assert currentCart != null;
-        if (!isLessonAddableToCart(currentCart, dbLesson, form)) {
-            throw new CustomException(ExceptionCode.NOT_ENOUGH_LESSON_SLOT_QUANTITY);
+            // 추가하려는 레슨이 DB에 존재하는지 확인
+            Lesson dbLesson = lessonSearchService.getByLessonId(lesson.id());
+
+            // 장바구니 요청 수량이 재고량보다 크지 않은지 확인
+            if (!isLessonAddableToCart(currentCart, dbLesson, form)) {
+                throw new CustomException(ExceptionCode.NOT_ENOUGH_LESSON_SLOT_QUANTITY);
+            }
+
+            // 레슨 및 슬롯 수량 업데이트
+            updateOrAddLessonToCart(currentCart, form);
         }
-
-        // 레슨 및 슬롯 수량 업데이트
-        updateOrAddLessonToCart(currentCart, form);
 
         return redisCartService.putCart(authenticatedUser.getId(), currentCart);
     }
@@ -64,7 +66,7 @@ public class CustomerCartService {
         return returnCart(authenticatedUser.getId());
     }
 
-    public Cart removeLessonFromCart(Long lessonId) {
+    public void removeLessonFromCart(Long lessonId) {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
         // 현재 장바구니 불러오기
@@ -79,9 +81,8 @@ public class CustomerCartService {
         // 장바구니에서 일치하는 레슨을 삭제
         optionalLessonInCart.ifPresent(lesson -> currentCart.getLessons().remove(lesson));
 
-        // 변경된 장바구니 저장 및 반환
+        // 변경된 장바구니 저장
         redisCartService.putCart(authenticatedUser.getId(), currentCart);
-        return returnCart(authenticatedUser.getId());
     }
 
     public void validateCartContents(Cart cart) {
@@ -89,16 +90,13 @@ public class CustomerCartService {
         for (Cart.Lesson cartLesson : cart.getLessons()) {
             // DB에 존재하는 레슨인지 확인
             Lesson dbLesson = lessonSearchService.getByLessonId(cartLesson.getId());
-            if (dbLesson == null) {
-                throw new CustomException(ExceptionCode.LESSON_NOT_FOUND);
-            }
 
             // key-value 맵으로 slot-slotId 를 변환
             Map<Long, LessonSlot> dbSlotMap = dbLesson.getLessonSlots()
                     .stream().collect(Collectors.toMap(LessonSlot::getId, slot -> slot));
 
             // DB에 존재하는 슬롯인지 확인
-            for (Cart.LessonSlot cartSlot : cartLesson.getLessonSlots()) {
+            for (Cart.Lesson.LessonSlot cartSlot : cartLesson.getLessonSlots()) {
                 LessonSlot dbSlot = dbSlotMap.get(cartSlot.getId());
                 if (dbSlot == null) {
                     throw new CustomException(ExceptionCode.LESSON_SLOT_NOT_FOUND);
@@ -112,10 +110,10 @@ public class CustomerCartService {
         }
     }
 
-    private void updateOrAddLessonToCart(Cart cart, LessonCartRequestDto form) {
+    private void updateOrAddLessonToCart(Cart cart, CartDto form) {
         // form 으로 전달된 레슨 id와 동일한 레슨이 장바구니에 있는지 확인
         Optional<Cart.Lesson> optionalCartLesson = cart.getLessons().stream()
-                .filter(lesson -> lesson.getId().equals(form.id()))
+                .filter(lesson -> lesson.getId().equals(form.customerId()))
                 .findFirst();
 
         // form 으로 전달된 레슨이 장바구니에 있는 레슨인 경우
@@ -123,16 +121,18 @@ public class CustomerCartService {
             Cart.Lesson cartLesson = optionalCartLesson.get();
 
             // key-value 맵으로 해당 레슨 슬롯을 slot-slotId 로 변환
-            Map<Long, Cart.LessonSlot> cartSlotMap = cartLesson.getLessonSlots().stream()
-                    .collect(Collectors.toMap(Cart.LessonSlot::getId, slot -> slot));
+            Map<Long, Cart.Lesson.LessonSlot> cartSlotMap = cartLesson.getLessonSlots().stream()
+                    .collect(Collectors.toMap(Cart.Lesson.LessonSlot::getId, slot -> slot));
 
             // form 으로 전달된 레슨 슬롯을 리스트로 변환
-            List<Cart.LessonSlot> formSlot = form.lessonSlots().stream()
-                    .map(Cart.LessonSlot::fromRequestForm).toList();
+            List<Cart.Lesson.LessonSlot> formSlot = form.lessons().stream()
+                    .flatMap(lesson -> lesson.lessonSlots().stream())
+                    .map(Cart.Lesson.LessonSlot::fromDto)
+                    .toList();
 
             // form 으로 전달된 레슨 슬롯과 장바구니에 있는 레슨 슬롯을 비교
-            for (Cart.LessonSlot slot : formSlot) {
-                Cart.LessonSlot cartSlot = cartSlotMap.get(slot.getId());
+            for (Cart.Lesson.LessonSlot slot : formSlot) {
+                Cart.Lesson.LessonSlot cartSlot = cartSlotMap.get(slot.getId());
 
                 // 장바구니에 해당 슬롯이 없으면 추가
                 if (cartSlot == null) {
@@ -141,33 +141,31 @@ public class CustomerCartService {
                     cartSlot.setQuantity(cartSlot.getQuantity() + slot.getQuantity());
                 }
             }
-        } else { // form 으로 전달된 레슨이 장바구니에 없는 레슨인 경우
-            Cart.Lesson newLesson = Cart.Lesson.fromRequestForm(form);
-            cart.getLessons().add(newLesson);
+        } else {
+            // form 으로 전달된 레슨이 장바구니에 없는 레슨인 경우 추가
+            for (CartDto.Lesson formLesson : form.lessons()) {
+                Cart.Lesson newLesson = Cart.Lesson.fromDto(formLesson);
+                cart.getLessons().add(newLesson);
+            }
         }
     }
 
     public Cart returnCart(Long customerId) {
-        Cart newCart = refreshCart(redisCartService.getCart(customerId));
-        newCart.setCustomerId(customerId);
+        Cart refreshedCart = refreshCart(redisCartService.getCart(customerId));
+        refreshedCart.setCustomerId(customerId);
 
-        // 새로고침한 장바구니 내역을 복사한 객체 생성
-        Cart cartWithMessages = new Cart();
-        cartWithMessages.setCustomerId(customerId);
-        cartWithMessages.setLessons(newCart.getLessons());
-        cartWithMessages.setMessages(newCart.getMessages());
+        // 메시지를 포함한 장바구니 생성 (refreshedCart 내용을 복사)
+        Cart cartWithMessages = cloneCart(refreshedCart);
 
-        // 새로고침한 장바구니 내역은 변동 사항 메시지를 제거한 후 저장
-        newCart.setMessages(new ArrayList<>());
-        redisCartService.putCart(customerId, newCart);
-
-        System.out.println("cartWithMessages Products Size: " + cartWithMessages.getLessons().size());
+        // 메시지 없이 변동 사항을 처리한 장바구니 저장
+        refreshedCart.clearMessages();
+        redisCartService.putCart(customerId, refreshedCart);
 
         return cartWithMessages;
     }
 
     protected Cart refreshCart(Cart cart) {
-        // 장바구니에 담긴 레슨들의 id를 통해서 실제 db에 있는 레슨 정보를 불러와 map으로 변환
+        // DB에서 레슨 정보를 미리 로드하여 map으로 변환
         Map<Long, Lesson> dbLessonMap = lessonSearchService.getListByLessonIds(
                         cart.getLessons().stream().map(Cart.Lesson::getId).collect(Collectors.toList()))
                 .stream().collect(Collectors.toMap(Lesson::getId, lesson -> lesson));
@@ -177,85 +175,25 @@ public class CustomerCartService {
 
         // 장바구니에 담긴 레슨을 하나씩 꺼내서
         for (Cart.Lesson cartLesson : cart.getLessons()) {
-            // 실제 db에 있는 레슨인지 확인
             Lesson dbLesson = dbLessonMap.get(cartLesson.getId());
 
             // 실제 db에 없으면 장바구니에 있는 레슨을 삭제 대상 리스트에 추가하고 메시지 기록
             if (dbLesson == null) {
                 lessonsToRemove.add(cartLesson);
-                cart.addMessage(cartLesson.getTitle() + " 레슨이 더 이상 존재하지 않아 삭제되었습니다.");
+                cart.addMessages(cartLesson.getTitle() + " 레슨이 더 이상 존재하지 않아 삭제되었습니다.");
                 continue;
             }
 
-            // 장바구니에 담긴 레슨 슬롯들의 id를 통해서 실제 db에 있는 레슨 슬롯 정보를 불러와 map으로 변환
-            Map<Long, LessonSlot> dbSlotMap = dbLesson.getLessonSlots().stream()
-                    .collect(Collectors.toMap(LessonSlot::getId, slot -> slot));
-
-            // 장바구니에 담긴 레슨의 변동 사항을 기록할 임시 메시지 리스트
-            List<String> temporaryMessages = new ArrayList<>();
-
-            // 삭제 대상인 슬롯을 담을 리스트
-            List<Cart.LessonSlot> slotsToRemove = new ArrayList<>();
-
-            // 장바구니에 담긴 슬롯을 하나씩 꺼내서
-            for (Cart.LessonSlot cartLessonSlot : cartLesson.getLessonSlots()) {
-                // 실제 db에 있는 슬롯인지 확인
-                LessonSlot dbSlot = dbSlotMap.get(cartLessonSlot.getId());
-
-                // 실제 db에 없으면 장바구니에 있는 슬롯을 삭제 대상 리스트에 추가하고 메시지 기록
-                if (dbSlot == null) {
-                    slotsToRemove.add(cartLessonSlot);
-                    cart.addMessage(cartLessonSlot.getStartTime() + " 슬롯이 더 이상 존재하지 않아 삭제되었습니다.");
-                    continue;
-                }
-
-                // 가격 또는 재고량이 변경된 경우, 이를 확인하고 장바구니 정보를 갱신
-                boolean isQuantityNotEnough = false, isPriceChanged = false;
-
-                // 가격이 변경된 경우, 갱신하고 플래그 설정
-                int quantityBeforeUpdate = cartLessonSlot.getQuantity();
-
-                if (cartLessonSlot.getQuantity() > dbSlot.getQuantity()) {
-                    isQuantityNotEnough = true;
-                    cartLessonSlot.setQuantity(dbSlot.getQuantity());
-                }
-
-                // 재고량이 부족한 경우, 갱신하고 플래그 설정
-                int priceBeforeUpdate = cartLesson.getPrice();
-
-                if (!cartLesson.getPrice().equals(dbLesson.getPrice())) {
-                    isPriceChanged = true;
-                    cartLesson.setPrice(dbLesson.getPrice());
-                }
-
-                // 변동 사항을 기록하는 메시지 생성
-                if (isPriceChanged && isQuantityNotEnough) {
-                    temporaryMessages.add(cartLessonSlot.getStartTime() + "의 가격과 재고량이 변동되어 장바구니 내역이 수정되었습니다.");
-                    temporaryMessages.add("[기존 가격] -> " + priceBeforeUpdate + "[변동된 가격] -> " + cartLesson.getPrice());
-                    temporaryMessages.add("[기존 수량] -> " + quantityBeforeUpdate + "[변동된 수량] -> " + cartLessonSlot.getQuantity());
-                } else if (isPriceChanged) {
-                    temporaryMessages.add(cartLesson.getPrice() + "레슨의 가격이 변동되어 장바구니 내역이 수정되었습니다.");
-                    temporaryMessages.add("[기존 가격] -> " + priceBeforeUpdate + " [변동된 가격] -> " + cartLesson.getPrice());
-                } else if (isQuantityNotEnough) {
-                    temporaryMessages.add(cartLessonSlot.getStartTime() + "시간대 슬롯의 재고량이 변동되어 장바구니 내역이 수정되었습니다.");
-                    temporaryMessages.add("[기존 수량] -> " + quantityBeforeUpdate + "[변동된 수량] -> " + cartLessonSlot.getQuantity());
-                }
+            // 슬롯 처리 로직을 메소드로 분리
+            List<String> slotMessages = processSlots(cartLesson, dbLesson);
+            if (!slotMessages.isEmpty()) {
+                cart.addMessages(String.join("\n", slotMessages));
             }
 
-            // 삭제 대상 리스트의 슬롯은 장바구니에서 일괄 삭제 처리
-            cartLesson.getLessonSlots().removeAll(slotsToRemove);
-
-            // 슬롯이 모두 삭제된 레슨은 레슨 자체도 제거하고 메시지 기록
+            // 슬롯이 모두 삭제된 레슨을 삭제 대상에 추가
             if (cartLesson.getLessonSlots().isEmpty()) {
                 lessonsToRemove.add(cartLesson);
-                cart.addMessage(cartLesson.getTitle() + " 선택 가능한 슬롯이 없어 레슨이 삭제 처리되었습니다.");
-            } else if (!temporaryMessages.isEmpty()) {
-                StringBuilder builder = new StringBuilder();
-                builder.append(cartLesson.getTitle()).append(" - 레슨 변동 사항:\n");
-                for (String message : temporaryMessages) {
-                    builder.append(message).append("\n");
-                }
-                cart.addMessage(builder.toString());
+                cart.addMessages(cartLesson.getTitle() + " 선택 가능한 슬롯이 없어 레슨이 삭제되었습니다.");
             }
         }
 
@@ -265,10 +203,78 @@ public class CustomerCartService {
         return cart;
     }
 
-    private boolean isLessonAddableToCart(Cart cart, Lesson lesson, LessonCartRequestDto form) {
+
+    private Cart cloneCart(Cart originalCart) {
+        Cart clonedCart = new Cart();
+        clonedCart.setCustomerId(originalCart.getCustomerId());
+        clonedCart.setLessons(originalCart.getLessons());
+        clonedCart.setMessages(originalCart.getMessages());
+        return clonedCart;
+    }
+
+    private List<String> processSlots(Cart.Lesson cartLesson, Lesson dbLesson) {
+        List<String> messages = new ArrayList<>();
+        List<Cart.Lesson.LessonSlot> slotsToRemove = new ArrayList<>();
+        Map<Long, LessonSlot> dbSlotMap = dbLesson.getLessonSlots().stream()
+                .collect(Collectors.toMap(LessonSlot::getId, slot -> slot));
+        for (Cart.Lesson.LessonSlot cartLessonSlot : cartLesson.getLessonSlots()) {
+            LessonSlot dbSlot = dbSlotMap.get(cartLessonSlot.getId());
+
+            if (dbSlot == null) {
+                slotsToRemove.add(cartLessonSlot);
+                messages.add(cartLessonSlot.getStartTime() + " 슬롯이 더 이상 존재하지 않아 삭제되었습니다.");
+                continue;
+            }
+
+            // 가격 및 수량 변화 확인
+            messages.addAll(checkPriceAndQuantityChanges(cartLesson, cartLessonSlot, dbLesson, dbSlot));
+        }
+
+        // 삭제 대상 슬롯 처리
+        cartLesson.getLessonSlots().removeAll(slotsToRemove);
+
+        return messages;
+    }
+
+    private List<String> checkPriceAndQuantityChanges(Cart.Lesson cartLesson, Cart.Lesson.LessonSlot cartLessonSlot,
+                                                      Lesson dbLesson, LessonSlot dbSlot) {
+        List<String> messages = new ArrayList<>();
+        boolean isPriceChanged = false, isQuantityNotEnough = false;
+
+        // 가격이 변경된 경우, 갱신하고 플래그 설정
+        int quantityBeforeUpdate = cartLessonSlot.getQuantity();
+        if (cartLessonSlot.getQuantity() > dbSlot.getQuantity()) {
+            isQuantityNotEnough = true;
+            cartLessonSlot.setQuantity(dbSlot.getQuantity());
+        }
+
+        // 재고량이 부족한 경우, 갱신하고 플래그 설정
+        int priceBeforeUpdate = cartLesson.getPrice();
+        if (!cartLesson.getPrice().equals(dbLesson.getPrice())) {
+            isPriceChanged = true;
+            cartLesson.setPrice(dbLesson.getPrice());
+        }
+
+        // 메시지 생성
+        if (isPriceChanged && isQuantityNotEnough) {
+            messages.add(cartLessonSlot.getStartTime() + "의 가격과 재고량이 변동되어 장바구니 내역이 수정되었습니다.");
+            messages.add("[기존 가격] -> " + priceBeforeUpdate + " [변동된 가격] -> " + cartLesson.getPrice());
+            messages.add("[기존 수량] -> " + quantityBeforeUpdate + " [변동된 수량] -> " + cartLessonSlot.getQuantity());
+        } else if (isPriceChanged) {
+            messages.add(cartLesson.getTitle() + " 레슨의 가격이 변동되어 장바구니 내역이 수정되었습니다.");
+            messages.add("[기존 가격] -> " + priceBeforeUpdate + " [변동된 가격] -> " + cartLesson.getPrice());
+        } else if (isQuantityNotEnough) {
+            messages.add(cartLessonSlot.getStartTime() + " 슬롯의 재고량이 변동되어 장바구니 내역이 수정되었습니다.");
+            messages.add("[기존 수량] -> " + quantityBeforeUpdate + " [변동된 수량] -> " + cartLessonSlot.getQuantity());
+        }
+
+        return messages;
+    }
+
+    private boolean isLessonAddableToCart(Cart cart, Lesson lesson, CartDto form) {
         // 장바구니에 해당 레슨이 이미 있는지 확인
         Cart.Lesson optionalCartLesson = cart.getLessons().stream()
-                .filter(optionalLesson -> optionalLesson.getId().equals(form.id()))
+                .filter(optionalLesson -> optionalLesson.getId().equals(form.customerId()))
                 .findFirst()
                 .orElse(null);
 
@@ -277,17 +283,18 @@ public class CustomerCartService {
             return true;
         }
 
-        // 장바구니에 해당 레슨이 있으 슬롯 재고를 확인
+        // 장바구니에 해당 레슨이 있으면 슬롯 재고를 확인
         // 장바구니 슬롯과 슬롯 수량 map
         Map<Long, Integer> cartSlotQuantityMap = optionalCartLesson.getLessonSlots().stream()
-                .collect(Collectors.toMap(Cart.LessonSlot::getId, Cart.LessonSlot::getQuantity));
+                .collect(Collectors.toMap(Cart.Lesson.LessonSlot::getId, Cart.Lesson.LessonSlot::getQuantity));
         // 데이터베이스 슬롯과 슬롯 수량 map
         Map<Long, Integer> dbSlotQuantityMap = lesson.getLessonSlots().stream()
                 .collect(Collectors.toMap(LessonSlot::getId, LessonSlot::getQuantity));
 
         // 추가하려는 레슨 슬롯과 장바구니에 있는 슬롯의 재고를 비교하여, 실제 db 재고가 충분한지 확인
-        return form.lessonSlots().stream().
-                anyMatch(formSlot ->
+        return form.lessons().stream()
+                .flatMap(lessons -> lessons.lessonSlots().stream())
+                .allMatch(formSlot ->
                         {
                             Integer cartSlotQuantity = cartSlotQuantityMap.getOrDefault(formSlot.id(), 0);
                             Integer dbSlotQuantity = dbSlotQuantityMap.getOrDefault(formSlot.id(), 0);

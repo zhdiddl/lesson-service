@@ -34,7 +34,7 @@ public class CoachLessonController {
 
     @PutMapping("/lessons/{lessonId}")
     public ResponseEntity<String> updateLesson(@PathVariable Long lessonId,
-                                               @RequestBody LessonDto updateForm) {
+                                               @Valid @RequestBody LessonDto updateForm) {
         coachLessonService.updateLesson(lessonId, updateForm);
         return ResponseEntity.ok("레슨 정보 업데이트가 완료되었습니다.");
     }
@@ -42,7 +42,7 @@ public class CoachLessonController {
     @PutMapping("/lessons/{lessonId}/slots/{slotId}")
     public ResponseEntity<String> updateLessonSlot(@PathVariable Long lessonId,
                                                    @PathVariable Long slotId,
-                                                   @RequestBody LessonSlotDto updateForm) {
+                                                   @Valid @RequestBody LessonSlotDto updateForm) {
         coachLessonSlotService.updateLessonSlot(lessonId, slotId, updateForm);
         return ResponseEntity.ok("레슨 슬롯 정보 업데이트가 완료되었습니다.");
     }
