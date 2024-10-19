@@ -5,14 +5,16 @@ import com.learnhive.lessonservice.domain.user.UserAccount;
 import com.learnhive.lessonservice.exception.CustomException;
 import com.learnhive.lessonservice.exception.ExceptionCode;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.*;
 import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Getter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 @ToString(callSuper = true)
 @Entity
 public class LessonSlot extends AuditingFields {
@@ -37,20 +39,7 @@ public class LessonSlot extends AuditingFields {
     private Integer quantity;
 
 
-    protected LessonSlot() {}
-
-    private LessonSlot(UserAccount coach, Lesson lesson, LocalDateTime startTime, Integer quantity) {
-        this.coach = coach;
-        this.lesson = lesson;
-        this.startTime = startTime;
-        this.quantity = quantity;
-    }
-
-    public static LessonSlot of(UserAccount coach, Lesson lesson, LocalDateTime startTime, Integer quantity) {
-        return new LessonSlot(coach, lesson, startTime, quantity);
-    }
-
-
+    // 시간대 변경 메소드
     public void updateStartTime(LocalDateTime newStartTime) {
         if (this.lesson.getLessonStatus() == LessonStatus.ACTIVE) {
             throw new CustomException(ExceptionCode.FORBIDDEN_UPDATE_ACTIVE_LESSON);
@@ -63,6 +52,7 @@ public class LessonSlot extends AuditingFields {
         }
     }
 
+    // 재고 변경 메소드
     public void updateQuantity(Integer newQuantity) {
         if (this.lesson.getLessonStatus() == LessonStatus.ACTIVE) {
             throw new CustomException(ExceptionCode.FORBIDDEN_UPDATE_ACTIVE_LESSON);
@@ -87,6 +77,5 @@ public class LessonSlot extends AuditingFields {
     public int hashCode() {
         return Objects.hashCode(getId());
     }
-
 
 }

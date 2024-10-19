@@ -38,12 +38,12 @@ public class CoachLessonSlotService {
         }
 
         // 슬롯을 레슨에 추가
-        LessonSlot newLessonSlot = LessonSlot.of(
-                authenticatedUser,
-                existingLesson,
-                lessonSlotDto.startTime(),
-                lessonSlotDto.quantity()
-        );
+        LessonSlot newLessonSlot = LessonSlot.builder()
+                .coach(authenticatedUser)
+                .lesson(existingLesson)
+                .startTime(lessonSlotDto.startTime())
+                .quantity(lessonSlotDto.quantity())
+                .build();
 
         existingLesson.getLessonSlots().add(newLessonSlot);
     }
@@ -77,18 +77,13 @@ public class CoachLessonSlotService {
     public void deleteLesson(Long lessonId, Long slotId) {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
-        // 삭제 가능한 레슨 조회
+        // 삭제 가능한 레슨 조회하고 활성화 상태에서는 삭제할 수 없도록 유도
         Lesson existingLesson = lessonRepository.findByIdAndCoachIdAndLessonStatus(
                         lessonId, authenticatedUser.getId(), LessonStatus.INACTIVE)
                 .orElseThrow(() -> new CustomException(ExceptionCode.LESSON_NOT_FOUND));
 
-        // 삭제 가능한 슬롯 조회
-        LessonSlot existingLessonSlot = lessonSlotRepository
-                .findByIdAndLessonIdAndCoachId(slotId, existingLesson.getId(), authenticatedUser.getId())
-                .orElseThrow(() -> new CustomException(ExceptionCode.LESSON_SLOT_NOT_FOUND));
-
         // 삭제 처리
-        lessonSlotRepository.delete(existingLessonSlot);
+        authenticatedUser.softDeleteAccount();
     }
 
 }

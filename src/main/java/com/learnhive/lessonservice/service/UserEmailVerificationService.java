@@ -34,20 +34,20 @@ public class UserEmailVerificationService {
 
     @Transactional
     public void sendEmailVerificationRequest(UserAccount userAccount) {
-        String verificationCode = RandomStringUtils.random(10, true, true);
+        String newVerificationCode = RandomStringUtils.random(10, true, true);
 
         MailgunForm sendMailForm = MailgunForm.builder()
                 .to(userAccount.getEmail())
                 .from(fromEmail)
                 .subject(emailSubject)
-                .text(buildEmailVerificationMessage(userAccount.getEmail(), userAccount.getUsername(), verificationCode))
+                .text(buildEmailVerificationMessage(userAccount.getEmail(), userAccount.getUsername(), newVerificationCode))
                 .build();
 
         mailgunClient.sendEmail(sendMailForm);
         log.info("사용자에게 이메일 인증 요청 메일이 발송되었습니다.");
 
-        userAccount.setEmailVerificationCode(verificationCode);
-        userAccount.setEmailVerificationCodeExpiry(LocalDateTime.now().plusMinutes(30));
+        userAccount.changeEmailVerificationCode(newVerificationCode);
+        userAccount.changeEmailVerificationCodeExpiry(LocalDateTime.now().plusMinutes(30));
     }
 
     private String buildEmailVerificationMessage(String email, String userName, String verificationCode) {
@@ -65,11 +65,7 @@ public class UserEmailVerificationService {
             throw new CustomException(ExceptionCode.EMAIL_VERIFICATION_EXPIRED);
         }
 
-        if (!userAccount.getEmailVerificationCode().equals(verificationCode)) {
-            throw new CustomException(ExceptionCode.EMAIL_VERIFICATION_FAILED);
-        }
-
-        userAccount.setEmailVerified(true);
+        userAccount.verifyEmail();
     }
 
 }

@@ -14,10 +14,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Slf4j
@@ -26,7 +24,6 @@ import java.util.Objects;
 public class UserAccountService {
 
     private final UserAccountRepository userAccountRepository;
-    private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
     private final JwtTokenManager jwtUtil;
@@ -46,13 +43,12 @@ public class UserAccountService {
         }
 
         // User 객체 생성 및 저장
-         UserAccount newUserAccount = UserAccount.of(
-                 userAccountDto.username(),
-                 passwordEncoder.encode(userAccountDto.userPassword()),
-                 userAccountDto.email(),
-                 userAccountDto.userRole()
-         );
-        userAccountRepository.save(newUserAccount);
+         UserAccount newUserAccount = UserAccount.builder()
+                 .username(userAccountDto.username())
+                 .userPassword(userAccountDto.userPassword())
+                 .userRole(userAccountDto.userRole())
+                 .email(userAccountDto.email())
+                 .build();
 
         // 이메일 인증 요청 전
         userEmailVerificationService.sendEmailVerificationRequest(newUserAccount);
@@ -65,9 +61,7 @@ public class UserAccountService {
         UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
         // 로그인 처리 후 정보 업데이트
-        UserAccount userAccount = userAccountRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new CustomException(ExceptionCode.USER_NOT_FOUND));
-        userAccount.setLastLogin(LocalDateTime.now());
+        userAccountRepository.findByUsername(userDetails.getUsername()).orElseThrow(() -> new CustomException(ExceptionCode.USER_NOT_FOUND));
 
         // 인증된 사용자 정보를 사용해 토큰 생성 및 반환
         return jwtUtil.generateToken(userDetails.getUsername());
@@ -94,24 +88,18 @@ public class UserAccountService {
             throw new CustomException(ExceptionCode.FORBIDDEN_ACTION);
         }
 
-        // 회원 정보 수정
-        if (updateForm.username() != null && authenticatedUser.getUsername().equals(updateForm.username())) {
-            if (userAccountRepository.existsByUsername(updateForm.username())) {
-                throw new CustomException(ExceptionCode.USERNAME_ALREADY_EXISTS);
-            }
-            authenticatedUser.setUsername(updateForm.username());
+        // 이름, 비밀번호, 이메일 회원 정보 수정
+        if (userAccountRepository.existsByUsername(updateForm.username())) {
+            throw new CustomException(ExceptionCode.USERNAME_ALREADY_EXISTS);
         }
-        if (updateForm.email() != null && authenticatedUser.getEmail().equals(updateForm.email())) {
-            if (userAccountRepository.existsByEmail(updateForm.email())) {
-                throw new CustomException(ExceptionCode.EMAIL_ALREADY_EXISTS);
-            }
-            authenticatedUser.setEmail(updateForm.email());
+        authenticatedUser.changeUserName(updateForm.username());
+
+        if (userAccountRepository.existsByEmail(updateForm.email())) {
+            throw new CustomException(ExceptionCode.EMAIL_ALREADY_EXISTS);
         }
-        if (updateForm.userPassword() != null) {
-            if (userAccountRepository.existsByUsername(updateForm.username())) {
-                authenticatedUser.setUserPassword(passwordEncoder.encode(updateForm.userPassword()));
-            }
-        }
+        authenticatedUser.changeEmail(updateForm.email());
+
+        authenticatedUser.changePassword(updateForm.userPassword());
     }
 
     @Transactional
@@ -125,7 +113,7 @@ public class UserAccountService {
         }
 
         // 소프트 삭제 처리
-        authenticatedUser.setDeleted(true);
+        authenticatedUser.softDeleteAccount();
     }
 
     public String findUsernameByEmail(String email) {

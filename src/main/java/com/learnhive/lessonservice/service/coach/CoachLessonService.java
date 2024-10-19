@@ -24,13 +24,14 @@ public class CoachLessonService {
         UserAccount authenticatedUser = authenticatedUserService.getAuthenticatedUser();
 
         // 객체 생성
-        Lesson newLesson = Lesson.of(
-                authenticatedUser,
-                lessonDto.title(),
-                lessonDto.price(),
-                lessonDto.description(),
-                lessonDto.status()
-        );
+        Lesson newLesson = Lesson.builder()
+                .coach(authenticatedUser)
+                .title(lessonDto.title())
+                .price(lessonDto.price())
+                .description(lessonDto.description())
+                .lessonStatus(lessonDto.status())
+                .build();
+
         lessonRepository.save(newLesson);
     }
 
