@@ -121,9 +121,11 @@ public class UserAccountService {
                 .orElseThrow(() -> new CustomException(ExceptionCode.USER_NOT_FOUND));
 
         if (!userAccount.isEmailVerified()) {
-            return "요청한 이메일로 인증을 완료한 사용자의 계정을 찾을 수 없습니다.";
-        } else if (userAccount.isDeleted()) {
-            return "요청한 이메일의 사용자 계정은 삭제 처리되었습니다.";
+            throw new CustomException(ExceptionCode.USER_NOT_FOUND);
+        }
+
+        if (userAccount.isDeleted()) {
+            throw new CustomException(ExceptionCode.USER_DELETED);
         }
 
         return userAccount.getUsername();
