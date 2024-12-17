@@ -85,18 +85,10 @@ public class UserAccountController {
     // 현재 사용 중인 토큰만 무효화하면서 로그아웃
     @PostMapping("/signOut") // 로그인한 사람만 접근 가능
     public ResponseEntity<String> signOut(@RequestParam Long userId, HttpServletResponse response) {
-        try {
             userService.signOut(userId);
             jwtValidationService.clearTokenCookie(response);
 
             return ResponseEntity.ok("현재 기기에서 로그아웃되었습니다.");
-
-        } catch (Exception e) {
-            log.warn(e.getMessage(), e);
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("사용자 계정 로그아웃 중 오류가 발생했습니다.");
-        }
     }
 
     // 특정 토큰을 기준으로 다른 토큰들을 무효화하는 방식으로 모든 기기 로그아웃
@@ -135,17 +127,9 @@ public class UserAccountController {
     public ResponseEntity<String> deleteUser(@Parameter(description = "삭제할 사용자 계정 아이디", required = true)
                                              @PathVariable Long userId,
                                              HttpServletResponse response) {
-        try {
         userService.deleteUser(userId);
         jwtValidationService.clearTokenCookie(response);
-
         return ResponseEntity.ok("사용자 계정 삭제가 완료되었습니다.");
-
-        } catch (Exception e) {
-            log.warn(e.getMessage(), e);
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("사용자 계정 삭제 중 오류가 발생했습니다.");
-        }
     }
+
 }

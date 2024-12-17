@@ -2,6 +2,8 @@ package com.learnhive.lessonservice.exception;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 
 import java.util.stream.Collectors;
 
+@Slf4j
 @ControllerAdvice
 public class ExceptionController {
 
@@ -28,6 +31,14 @@ public class ExceptionController {
                 .collect(Collectors.joining(", "));
         return ResponseEntity
                 .badRequest().body(errorMessages);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<String> handleException(Exception e) {
+        log.warn("알 수 없는 예외 발생: {}", e.getMessage(), e);
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("알 수 없는 오류가 발생했습니다. 관리자에게 문의해 주세요.");
     }
 
     @AllArgsConstructor
